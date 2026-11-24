@@ -50,6 +50,7 @@ mmd -i esp.img ::/EFI ::/EFI/BOOT
 mcopy -i esp.img BOOTX64.EFI ::/EFI/BOOT/
 mkdir -p iso/EFI/BOOT
 cp BOOTX64.EFI iso/EFI/BOOT/
+test "$(stat -c %s BOOTX64.EFI)" -lt "$(stat -c %s esp.img)"
 xorriso -as mkisofs -R -V FRAMEWORK_HYPR -o candidate.iso -append_partition 2 0xef esp.img -appended_part_as_gpt -e '--interval:appended_partition_2:all::' -no-emul-boot iso
 AUTHOR
 mv "$work/candidate.iso" "$out/framework-hypr-amd64.iso"
