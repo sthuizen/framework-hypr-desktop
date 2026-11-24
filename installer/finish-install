@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Resume only the target prepared and mounted by this live session.
+set -Eeuo pipefail
+kit=/usr/share/framework-hypr
+target=/mnt/framework-target
+mapfile -t state </run/framework-install.state
+login=${state[0]}
+[[ $login =~ ^[a-z][a-z0-9_-]{0,30}$ && $(findmnt -nro UUID --mountpoint "$target") == "${state[1]}" ]]
+mountpoint -q "$target/efi"
+chroot "$target" bash "$kit/installer/configure-target" "$login"
+# Retain the live Wi-Fi connection so first login works without re-entering its key.
+if [[ -d /etc/NetworkManager/system-connections ]]; then
+  install -d -m700 "$target/etc/NetworkManager/system-connections"
+  for connection in /etc/NetworkManager/system-connections/*.nmconnection; do
+    [[ -f $connection ]] || continue
+    install -m600 "$connection" "$target/etc/NetworkManager/system-connections/"
+  done
+fi
+chroot "$target" passwd "$login"
+sync
+umount -R "$target"
+vgchange -an hypr_vg
+cryptsetup close hypr_crypt
+rm /run/framework-install.state
+echo 'Installation completed. Shut down, remove the USB and boot the new disk.'

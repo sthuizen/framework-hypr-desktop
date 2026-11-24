@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Offer only the reviewed public repositories and use their recorded revisions.
+set -euo pipefail
+inventory=/usr/share/framework-hypr/profile/plugins.json
+mapfile -t options < <(jq -r '.[]|select(.enabled==false)|.name' "$inventory")
+name=$(zenity --list --title='Optional desktop additions' --height=430 --width=440 --column='Plugin or theme' "${options[@]}") || exit 0
+row=$(jq -cer --arg name "$name" '.[]|select(.name==$name and .enabled==false)' "$inventory")
+url=$(jq -r .repository <<<"$row")
+rev=$(jq -r .commit <<<"$row")
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+git init -q "$work"
+git -C "$work" fetch --depth=1 "$url" "$rev"
+git -C "$work" checkout -q --detach FETCH_HEAD
+[[ $(git -C "$work" rev-parse HEAD) == "$rev" ]]
+if [[ $name == omarchy-tray-icon-fallback ]]; then
+  (cd "$work"; python3 scripts/manage.py install --check && python3 scripts/manage.py install)
+elif [[ -f $work/colors.toml ]]; then
+  slug=${name#omarchy-}
+  slug=${slug%-theme}
+  dest="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/themes/$slug"
+  if [[ ! -e $dest ]]; then mkdir -p "$(dirname "$dest")"; cp -a "$work" "$dest"; fi
+  omarchy theme set "$slug"
+else
+  id=$(jq -er .id "$work/manifest.json")
+  dest="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/$id"
+  if [[ ! -e $dest ]]; then mkdir -p "$(dirname "$dest")"; cp -a "$work" "$dest"; fi
+  omarchy-shell shell rescanPlugins
+  omarchy plugin enable "$id"
+fi

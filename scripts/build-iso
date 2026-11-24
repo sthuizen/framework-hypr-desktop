@@ -15,10 +15,18 @@ container=$(podman create localhost/framework-hypr-live:trixie)
 kit="$work/kit"
 mkdir -p "$kit" "$work/iso/live"
 cp -a "$repo"/{docs,installer,profile,scripts,skills,LICENSE,README.md} "$kit/"
+{
+  git -C "$repo" rev-parse HEAD
+  podman image inspect docker.io/library/debian:trixie-slim docker.io/library/ubuntu:26.04 --format '{{json .RepoDigests}}'
+} >"$work/iso/live/build-inputs"
 # Use the archive keyring from the official Ubuntu image resolved at build time.
 keybox=$(podman create docker.io/library/ubuntu:26.04)
 podman cp "$keybox:/usr/share/keyrings/ubuntu-archive-keyring.gpg" "$kit/"
 podman rm "$keybox" >/dev/null
+podman build -q -f "$repo/installer/Quickshell" -t localhost/framework-quickshell "$repo"
+qsbox=$(podman create localhost/framework-quickshell /unused)
+podman cp "$qsbox:/out" "$kit/packages"
+podman rm "$qsbox" >/dev/null
 podman cp "$kit" "$container:/usr/share/framework-hypr"
 podman unshare bash -e -s -- "$container" "$work" <<'MOUNT'
 root=$(podman mount "$1")

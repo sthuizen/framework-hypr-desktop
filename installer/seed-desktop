@@ -11,6 +11,12 @@ install -m644 "$kit/profile/bindings.lua" "$cfg/hypr/bindings.lua"
 # The Ubuntu first-login path is configured here. The upstream action also
 # provisions Arch packages and assumes tools from its graphical installer.
 sed -i '/hl.exec_cmd("omarchy-provision-first-run")/d; /herdr server/d' "$up/default/hypr/autostart.lua"
+# Qt 6.10 reserves "native" as an identifier; both are local image-size variables.
+sed -i 's/\bnative\b/imageSize/g' "$up/shell/services/BackgroundIntro.qml" "$up/shell/plugins/background/Background.qml"
+install -Dm644 "$up/default/fonts/omarchy/omarchy.ttf" /usr/local/share/fonts/omarchy.ttf
+install -Dm644 "$up/logo.txt" "$cfg/omarchy/branding/screensaver.txt"
+echo codex >"$cfg/omarchy/defaults/agent"
+python3 "$kit/installer/port-menu.py" "$up/default/omarchy/omarchy-menu.jsonc"
 cat >"$cfg/uwsm/env" <<'ENV'
 export OMARCHY_PATH=/usr/share/omarchy
 export PATH="$HOME/.local/bin:/usr/share/omarchy/bin:$PATH"
@@ -23,15 +29,19 @@ install -m644 "$kit/profile/mimeapps.list" "$cfg/mimeapps.list"
 echo foot.desktop >"$cfg/xdg-terminals.list"
 echo zed >"$skel/.local/state/omarchy/defaults/editor"
 install -m644 "$kit/profile/"*.desktop /usr/local/share/applications/
-for tool in finish-setup update-codex prepare-firefox-bridge framework-hardware-report framework-hibernate-delay enroll-disk-tpm; do install -m755 "$kit/scripts/$tool" /usr/local/bin/; done
-ln -s "$kit/skills/framework-hardware" "$skel/.agents/skills/framework-hardware"
-ln -s "$up/default/agents/skills/omarchy" "$skel/.agents/skills/omarchy"
+for tool in finish-setup framework-addition framework-update-system update-codex prepare-firefox-bridge framework-hardware-report framework-hibernate-delay enroll-disk-tpm; do install -m755 "$kit/scripts/$tool" /usr/local/bin/; done
+ln -sfn "$kit/skills/framework-hardware" "$skel/.agents/skills/framework-hardware"
+ln -sfn "$up/default/agents/skills/omarchy" "$skel/.agents/skills/omarchy"
 # SDDM finds only the distribution's compositor sessions. Select the Ubuntu port.
 install -m644 "$up/default/wayland-sessions/omarchy.desktop" /usr/share/wayland-sessions/
 mkdir -p /var/lib/sddm
 printf '[Last]\nSession=/usr/share/wayland-sessions/omarchy.desktop\n' >/var/lib/sddm/state.conf
 chown sddm:sddm /var/lib/sddm/state.conf
 printf '[General]\nDisplayServer=x11\n[Users]\nRememberLastSession=true\n' >/etc/sddm.conf.d/20-framework.conf
+install -d /etc/systemd/user/graphical-session.target.wants /etc/systemd/logind.conf.d
+sed 's|ExecStart=/usr/bin/omarchy-system-sleep-monitor|ExecStart=/usr/share/omarchy/bin/omarchy-system-sleep-monitor|' "$up/default/systemd/user/omarchy-sleep-lock.service" > /etc/systemd/user/omarchy-sleep-lock.service
+ln -sf ../omarchy-sleep-lock.service /etc/systemd/user/graphical-session.target.wants/
+printf '[Login]\nInhibitDelayMaxSec=15s\n' >/etc/systemd/logind.conf.d/40-framework-lock.conf
 printf '#%%PAM-1.0\n@include common-auth\n@include common-account\n' > /etc/pam.d/omarchy-lock-password
 mkdir -p /etc/systemd/system/systemd-suspend-then-hibernate.service.d
 printf '[Service]\nExecStartPre=/usr/local/bin/framework-hibernate-delay apply\n' > /etc/systemd/system/systemd-suspend-then-hibernate.service.d/20-framework.conf
@@ -51,6 +61,10 @@ done < <(swapon --noheadings --show=NAME)
 CHECK
 gitfile() {
   local url=$1 rev=$2 dest=$3
+  if [[ -d $dest/.git ]]; then
+    [[ $(git -C "$dest" rev-parse HEAD) == "$rev" ]]
+    return
+  fi
   git init -q "$dest"
   git -C "$dest" fetch -q --depth=1 "$url" "$rev"
   git -C "$dest" checkout -q --detach FETCH_HEAD
@@ -60,13 +74,28 @@ while IFS=$'\t' read -r name repo rev; do
   dest=$(mktemp -d)
   gitfile "$repo" "$rev" "$dest"
   id=$(jq -er .id "$dest/manifest.json")
-  mv "$dest" "$cfg/omarchy/plugins/$id"
+  if [[ -d "$cfg/omarchy/plugins/$id/.git" ]]; then
+    [[ $(git -C "$cfg/omarchy/plugins/$id" rev-parse HEAD) == "$rev" ]]
+    rm -rf "$dest"
+  else
+    mv -T "$dest" "$cfg/omarchy/plugins/$id"
+  fi
 done < <(jq -r '.[] | select(.enabled) | [.name,.repository,.commit] | @tsv' "$kit/profile/plugins.json")
 python3 "$kit/installer/seed-shell.py" "$cfg/omarchy/shell.json"
 state="$skel/.local/state/omarchy/current"
 mkdir -p "$state" "$cfg/omarchy/themes"
 gitfile https://github.com/sthuizen/omarchy-quattro-sunset-theme.git a0d5fd80bea51c11a9df70e02cb28c0ce3329608 "$cfg/omarchy/themes/quattro-sunset"
-ln -s ../../../../.config/omarchy/themes/quattro-sunset "$state/theme"
+# Render the upstream templates before login. Preserve relative wallpaper paths
+# across /etc/skel being copied into each new account's home directory.
+mkdir -p "$state/next-theme"
+cp "$cfg/omarchy/themes/quattro-sunset/colors.toml" "$state/next-theme/"
+HOME="$skel" OMARCHY_PATH="$up" PATH="$up/bin:$PATH" "$up/bin/omarchy-theme-set-templates"
+mkdir -p "$state/theme"
+cp -a "$state/next-theme/." "$state/theme/"
+rm -rf "$state/next-theme"
+ln -sfn ../../../../../.config/omarchy/themes/quattro-sunset/backgrounds "$state/theme/backgrounds"
 echo quattro-sunset >"$state/theme.name"
 wall=$(jq -r '.wallpapers[0].file' "$cfg/omarchy/themes/quattro-sunset/wallpapers.json")
-ln -s "theme/$wall" "$state/background"
+ln -sfn "theme/$wall" "$state/background"
+test -s "$state/background"
+test -s "$state/theme/foot.ini"

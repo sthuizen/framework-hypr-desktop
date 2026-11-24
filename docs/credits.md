@@ -15,3 +15,7 @@ This project draws on the following upstream work. Release notices must accompan
 | Sleep implementation | [Ubuntu systemd sleep configuration](https://manpages.ubuntu.com/manpages/resolute/man5/systemd-sleep.conf.5.html) and [kernel protections](https://documentation.ubuntu.com/security/security-features/kernel-protections/). |
 
 The live installer uses Debian GNU/Linux, Linux, live-boot, GNU GRUB, dosfstools and xorriso. It carries the live package database and each package's /usr/share/doc copyright notices. The target uses the public [Hyprland PPA](https://launchpad.net/~cppiber/+archive/ubuntu/hyprland), [Mozilla package archive](https://packages.mozilla.org/), [OpenAI Codex](https://github.com/openai/codex) and the corresponding upstream package licenses. The private browser extension is obtained by the owner after installation. Release preparation must archive exact corresponding source and license records for the live binaries, firmware and bootloader as applicable.
+
+The screensaver uses Omarchy's packaged Rust terminal-effects renderer, ttfx 0.5.0-3. Its package SHA-256 is pinned in the installer and its MIT license and NOTICE are installed under /usr/local/share/doc/ttfx. [ttfx source](https://github.com/omacom/ttfx)
+
+The terminal font comes from the JetBrains Mono family as patched by Nerd Fonts v3.5.1. The installer retains OFL.txt with the four installed faces. [Nerd Fonts release](https://github.com/ryanoasis/nerd-fonts/releases/tag/v3.5.1)

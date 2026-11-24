@@ -1,0 +1,6 @@
+FROM docker.io/library/ubuntu:26.04 AS build
+ENV DEBIAN_FRONTEND=noninteractive
+COPY scripts/configure-hyprland-archive scripts/build-quickshell /opt/
+RUN apt-get update -qq && apt-get install -y --no-install-recommends curl ca-certificates gnupg && /opt/configure-hyprland-archive && apt-get update -qq && /opt/build-quickshell /out
+FROM scratch
+COPY --from=build /out /out

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Run after build-iso using the same three OCI images on the build host.
+set -euo pipefail
+out=$(realpath -m "${1:-dist/sources}")
+mkdir -p "$out"/{debian,ubuntu}
+format='${source:Package}=${source:Version}\n'
+podman run --rm localhost/framework-hypr-live:trixie dpkg-query -W -f="$format" | sort -u >"$out/debian/packages.txt"
+podman run --rm localhost/framework-hypr-isotools:trixie dpkg-query -W -f="$format" grub-efi-amd64-bin grub-common >>"$out/debian/packages.txt"
+# Some binaries include code built from another source package.
+podman run --rm localhost/framework-hypr-live:trixie dpkg-query -W -f='${Built-Using}, ${Static-Built-Using}\n' |
+  tr ',' '\n' | sed -nE 's/^ *([^ ]+) \(= ([^)]+)\) *$/\1=\2/p' >>"$out/debian/packages.txt"
+sort -u -o "$out/debian/packages.txt" "$out/debian/packages.txt"
+podman run --rm -v "$out/debian:/sources:Z" -w /sources localhost/framework-hypr-live:trixie sh -ec '
+  sed -i "s/^Types: deb$/Types: deb deb-src/" /etc/apt/sources.list.d/debian.sources
+  apt-get update -qq
+  xargs -a packages.txt -n 12 apt-get -o Acquire::Retries=3 --download-only --only-source source
+'
+podman run --rm -v "$out/ubuntu:/sources:Z" -w /sources docker.io/library/ubuntu:26.04 sh -ec '
+  sed -i "s/^Types: deb$/Types: deb deb-src/" /etc/apt/sources.list.d/ubuntu.sources
+  apt-get update -qq
+  dpkg-query -W -f="\${source:Package}=\${source:Version}\n" ubuntu-keyring > packages.txt
+  xargs -a packages.txt apt-get --download-only --only-source source
+'
+(cd "$out"; find debian ubuntu -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)

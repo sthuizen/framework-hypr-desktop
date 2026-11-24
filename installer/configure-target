@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 export DEBIAN_FRONTEND=noninteractive
+printf 'Acquire::Retries "3";\n' > /etc/apt/apt.conf.d/75-framework-retries
 kit=/usr/share/framework-hypr
 login=$1
 cat >/etc/apt/sources.list <<'APT'
@@ -10,8 +11,8 @@ deb https://security.ubuntu.com/ubuntu resolute-security main universe restricte
 APT
 printf '#!/bin/sh\nexit 101\n' >/usr/sbin/policy-rc.d
 chmod 755 /usr/sbin/policy-rc.d
-apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl gnupg
+apt-get -o APT::Update::Error-Mode=any update
+apt-get install -y --no-install-recommends ca-certificates curl gnupg file
 "$kit/scripts/configure-hyprland-archive"
 key=$(mktemp)
 curl -fsSL --retry 3 https://packages.mozilla.org/apt/repo-signing-key.gpg -o "$key"
@@ -20,37 +21,58 @@ install -m644 "$key" /etc/apt/keyrings/mozilla.asc
 rm "$key"
 echo 'deb [signed-by=/etc/apt/keyrings/mozilla.asc] https://packages.mozilla.org/apt mozilla main' >/etc/apt/sources.list.d/mozilla.list
 printf 'Package: firefox*\nPin: origin packages.mozilla.org\nPin-Priority: 1001\n' >/etc/apt/preferences.d/mozilla
-apt-get update
+apt-get -o APT::Update::Error-Mode=any update
 mkdir -p /etc/dracut.conf.d
 printf 'hostonly="no"\nadd_dracutmodules+=" systemd crypt dm lvm resume tpm2-tss "\ninstall_items+=" /etc/crypttab "\n' >/etc/dracut.conf.d/60-framework.conf
-apt-get install -y --no-install-recommends dracut systemd-boot-efi systemd-boot-tools systemd-ukify systemd-cryptsetup tpm2-tools libtss2-tcti-device0 cryptsetup lvm2 linux-generic linux-firmware amd64-microcode network-manager wpasupplicant wireless-regdb sudo locales systemd-resolved
-apt-get install -y --no-install-recommends hyprland=0.57.2-1ppa1~1resolute1 uwsm sddm xserver-xorg-core xserver-xorg-input-libinput xwayland mesa-vulkan-drivers libgl1-mesa-dri xdg-desktop-portal-hyprland xdg-desktop-portal-gtk qt6-wayland qml6-module-qtqml-workerscript qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtquick-layouts qml6-module-qtquick-controls qml6-module-qtquick-shapes qml6-module-qtquick-effects qml6-module-qtqml-models libqt6svg6 qml6-module-qtquick-templates qt6-image-formats-plugins pipewire-audio wireplumber bluez power-profiles-daemon upower fwupd brightnessctl pciutils usbutils polkitd pkexec network-manager-gnome zenity powermgmt-base wl-clipboard xdg-terminal-exec xdg-user-dirs xdg-utils dbus-user-session foot firefox nautilus mpv libreoffice git gh nodejs npm jq rsync unzip zstd file imagemagick grim slurp fonts-dejavu fonts-noto-color-emoji python3-gi libei1 libxkbcommon0 playerctl pavucontrol
-"$kit/scripts/build-quickshell"
+apt-get install -y --no-install-recommends dracut systemd-boot-efi systemd-boot-tools systemd-ukify systemd-cryptsetup tpm2-tools libtss2-tcti-device0 tpm-udev cryptsetup lvm2 linux-generic linux-firmware amd64-microcode network-manager wpasupplicant wireless-regdb sudo locales systemd-resolved
+apt-get install -y --no-install-recommends hyprland=0.57.2-1ppa1~1resolute1 uwsm sddm xserver-xorg-core xserver-xorg-input-libinput xwayland mesa-vulkan-drivers libgl1-mesa-dri xdg-desktop-portal-hyprland xdg-desktop-portal-gtk qt6-wayland qml6-module-qtqml-workerscript qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtquick-layouts qml6-module-qtquick-controls qml6-module-qtquick-shapes qml6-module-qtquick-effects qml6-module-qtqml-models libqt6svg6 qml6-module-qtquick-templates qt6-image-formats-plugins pipewire-audio wireplumber bluez power-profiles-daemon upower fwupd brightnessctl pciutils usbutils polkitd pkexec network-manager-gnome zenity socat inotify-tools udiskie powermgmt-base wl-clipboard xdg-terminal-exec xdg-user-dirs xdg-utils dbus-user-session foot firefox nautilus mpv mpv-mpris alsa-ucm-conf libreoffice git gh nodejs npm jq rsync unzip zstd file imagemagick grim slurp fonts-dejavu fonts-noto-color-emoji python3-gi libei1 libxkbcommon0 playerctl pavucontrol
+apt-get install -y --no-install-recommends "$kit/packages/framework-quickshell.deb"
 fetch() { curl -fsSL --retry 3 "$1" -o "$3"; echo "$2  $3" | sha256sum -c -; }
 fetch https://github.com/bjarneo/cliamp/releases/download/v2.4.1/cliamp-linux-amd64 cb6e9a08f2b9617d56b5e472d08d3cd68ad1312a161224a33c6f82e26c1ab2b1 /usr/local/bin/cliamp
 chmod 755 /usr/local/bin/cliamp
+fetch https://pkgs.omarchy.org/stable/x86_64/ttfx-0.5.0-3-x86_64.pkg.tar.zst a0a29b24a2a2f40e583e32856ac0ef192b03821cee95ab0f2423861588369355 /tmp/ttfx.pkg.tar.zst
+tar -xOf /tmp/ttfx.pkg.tar.zst usr/bin/ttfx > /usr/local/bin/ttfx
+chmod 755 /usr/local/bin/ttfx
+install -d /usr/local/share/doc/ttfx
+for notice in LICENSE NOTICE; do
+  tar -xOf /tmp/ttfx.pkg.tar.zst "usr/share/licenses/ttfx/$notice" > "/usr/local/share/doc/ttfx/$notice"
+done
+rm /tmp/ttfx.pkg.tar.zst
+fetch https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.1/JetBrainsMono.tar.xz 04d5e8f903693f9dd13e16f867e994834e681eb3c72c0d337a770dcda09010cf /tmp/jetbrains.tar.xz
+install -d /usr/local/share/fonts/JetBrainsMono
+tar xf /tmp/jetbrains.tar.xz -C /usr/local/share/fonts/JetBrainsMono JetBrainsMonoNerdFont-{Regular,Bold,Italic,BoldItalic}.ttf OFL.txt
+rm /tmp/jetbrains.tar.xz
 fetch https://github.com/zed-industries/zed/releases/download/v1.29.3/zed-linux-x86_64.tar.gz 44b0f350aa7bf4551d1b0aaa2d3b673a6de2c03bc5e979b3592fd2180b4f77c1 /tmp/zed.tgz
 tar xf /tmp/zed.tgz -C /opt
 ln -sf /opt/zed.app/bin/zed /usr/local/bin/zed
 install -d /usr/local/share/applications
 sed 's|Exec=zed|Exec=/usr/local/bin/zed|' /opt/zed.app/share/applications/dev.zed.Zed.desktop > /usr/local/share/applications/dev.zed.Zed.desktop
 rm /tmp/zed.tgz
-git clone --depth=1 --branch v4.5.0 https://github.com/omacom/omarchy.git /usr/share/omarchy
+if [[ ! -d /usr/share/omarchy/.git ]]; then
+  checkout=$(mktemp -d /usr/share/.omarchy-XXXXXXXX)
+  git clone --depth=1 --branch v4.5.0 https://github.com/omacom/omarchy.git "$checkout"
+  mv -T "$checkout" /usr/share/omarchy
+fi
 [[ $(git -C /usr/share/omarchy rev-parse HEAD) == ac2690cd7be4f47e4a255f5e2e78d904d436b068 ]]
 "$kit/installer/seed-desktop"
 printf 'framework-hypr\n' > /etc/hostname
 printf '127.0.0.1 localhost\n127.0.1.1 framework-hypr\n' >/etc/hosts
 locale-gen en_US.UTF-8
 update-locale LANG=en_US.UTF-8
-useradd -m -s /bin/bash -G sudo,video,render "$login"
+if ! id "$login" >/dev/null 2>&1; then
+  useradd -m -s /bin/bash -G sudo,video,render "$login"
+fi
 runuser -u "$login" -- "$kit/scripts/update-codex" 0.172.0
 install -m755 "$kit/installer/update-uki" /etc/kernel/postinst.d/zz-framework-uki
+install -Dm755 "$kit/installer/remove-uki" /etc/kernel/postrm.d/zz-framework-uki
 version=$(ls -1 /lib/modules | sort -V | tail -1)
 dracut --force "/boot/initrd.img-$version" "$version"
 "$kit/installer/update-uki" "$version"
 bootctl --esp-path=/efi --no-variables install
 mkdir -p /efi/loader
 printf 'default framework-*\ntimeout 3\neditor no\n' > /efi/loader/loader.conf
+mkdir -p /var/lib/framework-hypr
+dpkg-query -W -f='${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n' > /var/lib/framework-hypr/packages.tsv
 systemctl enable NetworkManager systemd-resolved sddm
 systemctl set-default graphical.target
 rm /usr/sbin/policy-rc.d

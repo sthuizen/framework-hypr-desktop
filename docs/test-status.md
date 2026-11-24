@@ -12,3 +12,5 @@
 | Remaining acceptance | Complete an install with the current image, boot it without media, verify graphical login and bindings, test TPM rejection on changed measurements, recovery, encrypted resume, updates and AC/battery transitions. Repeat firmware-dependent checks on Framework hardware. |
 
 Pre-release candidates are development artifacts. The intended release includes verified source archives and third-party notices alongside the binary.
+
+The follow-up disk test created the ext4 filesystem, populated the Ubuntu base and exposed a dangling resolver link inside the chroot. The installer now copies a regular resolver file and mounts an independent runtime filesystem for the target. The test then reached installation of Ubuntu's generic kernel. Quickshell loaded Omarchy's shell in an isolated Wayland session after the Qt 6.10 wallpaper syntax fix. These checks do not exercise graphics or sleep on the physical laptop.

@@ -5,15 +5,15 @@
 | Variable | Selection |
 |---|---|
 | First machine | Framework Laptop 13 AMD 7040 with Radeon integrated graphics, UEFI and TPM 2.0. Whole-disk replacement of Bluefin when the owner boots the finished installer. |
-| Distribution | Ubuntu 26.04.1 amd64 with normal Ubuntu kernel and security updates. Start from the server installer to avoid a GNOME Shell dependency. Include NetworkManager, Wi-Fi firmware, PipeWire, WirePlumber, BlueZ, portals, polkit, power profiles, fwupd and laptop brightness support. |
+| Distribution | Ubuntu 26.04.1 amd64 with normal Ubuntu kernel and security updates. Bootstrap the Ubuntu base from its signed package archive using a Debian live installer. Include NetworkManager, Wi-Fi firmware, PipeWire, WirePlumber, BlueZ, portals, polkit, power profiles, fwupd and laptop brightness support. |
 | Desktop | Actual Omarchy 4.5.0 Quickshell, native panels, bar, idle, lock, launcher, workspace and theme services. Test stock dwindle layout, animations, fractional scale, external monitor hotplug and screenshot / screencast. |
 | System integration | Evaluate a pinned desktop stack with Hyprland 0.57.2. Resolve QuickShell's Qt private ABI, Wayland/PAM modules, graphics driver and shell imports as one compatible set. Use system packages where compatible. Replace Arch package, update, bootloader and first-run operations with Ubuntu equivalents before exposing those menu actions. |
 | Login | Graphical greeter with the Hyprland session selected. Require local account authentication at login and after wake. TPM unlock applies to storage. No autologin. |
 | Plugins | Enable Sleep Guardian, Power Center and Media Deck. Audit all candidates. See plugin inventory. |
 | Applications | Firefox, Zed, foot, Nautilus, cliamp, mpv and LibreOffice. Test desktop entries, terminal commands, MIME and URI handlers, XDG terminal and Omarchy launchers after a fresh install. |
-| Keyboard | Super plus J/K/L/semicolon and arrows. Shift moves the window. See key map below. Detect keyboard layout in installer. |
+| Keyboard | Super plus J/K/L/semicolon and arrows. Shift moves the window. See key map below. Start with the Ubuntu keyboard defaults. |
 | Sleep priority | Prefer hibernation. Review the boot-security trade-off with the owner before changing firmware or the accepted unlock policy. |
-| Locale / identity | Ask in installer for language, time zone, keyboard, host name, account and secrets. |
+| Locale / identity | The installer asks for the account and passphrases. Initial hostname is framework-hypr, default locale en_US.UTF-8 and time zone UTC. |
 | Installation | Select target disk interactively with a final erase confirmation. Use only a disposable virtual disk in automated testing. |
 | Updates | Keep package pins, upstream license texts and a matching source inventory per release. Test compositor, Qt, Quickshell and plugin upgrades together. |
 | Distribution | Separate source repository under sthuizen and release assets. Prefer a small, independently built bootstrap ISO that obtains verified Ubuntu inputs during installation if redistributing a modified Canonical image requires permission. Document connectivity requirements before release. |

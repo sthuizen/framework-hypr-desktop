@@ -30,3 +30,20 @@ for workspace = 1, 10 do
   o.bind("SUPER + SHIFT + " .. key, "Send to workspace " .. workspace, o.workspaces.move_window(workspace, false))
 end
 o.bind("SUPER + F1", "Finish setup", "finish-setup")
+
+o.bind("SUPER + SPACE", "Focus floating or tiled windows", function()
+  local window = hl.get_active_window()
+  if window then
+    hl.dispatch(hl.dsp.window.cycle_next({ floating = not window.floating }))
+  end
+end)
+o.bind("SUPER + R", "Resize mode", hl.dsp.submap("resize"))
+hl.define_submap("resize", function()
+  for _, item in ipairs({{"J", "LEFT", -30, 0}, {"K", "DOWN", 0, 30}, {"L", "UP", 0, -30}, {"semicolon", "RIGHT", 30, 0}}) do
+    for _, key in ipairs({item[1], item[2]}) do
+      o.bind(key, "Resize " .. item[2], hl.dsp.window.resize({ x = item[3], y = item[4], relative = true }), { repeating = true })
+    end
+  end
+  o.bind("Escape", "Finish resizing", hl.dsp.submap("reset"))
+  o.bind("Return", "Finish resizing", hl.dsp.submap("reset"))
+end)

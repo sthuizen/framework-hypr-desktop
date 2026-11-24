@@ -17,7 +17,7 @@ ram_kib=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)
 swap_gib=$(( (ram_kib+1048575)/1048576 + 6 ))
 (( $(blockdev --getsize64 "$disk") >= (swap_gib + 40) * 1073741824 ))
 read -rp 'Login name: ' login
-[[ $login =~ ^[a-z][a-z0-9_-]{0,30}$ && "$login" != root ]]
+[[ $login =~ ^[a-z][a-z0-9_-]{0,30}$ ]] && ! getent passwd "$login" >/dev/null || { echo 'Choose an unused local account name.'; exit 1; }
 echo "This erases every partition on $disk. New encrypted swap: $swap_gib GiB."
 read -rp "Type ERASE $disk to continue: " confirm
 [[ "$confirm" == "ERASE $disk" ]] || exit 1
@@ -47,8 +47,9 @@ echo 'Installing the signed Ubuntu base packages.'
 debootstrap --include=ca-certificates --arch=amd64 --keyring="$kit/ubuntu-archive-keyring.gpg" resolute "$target" https://archive.ubuntu.com/ubuntu /usr/share/debootstrap/scripts/gutsy
 install -d "$target/usr/share/framework-hypr"
 cp -a "$kit/." "$target/usr/share/framework-hypr/"
-cp -L /etc/resolv.conf "$target/etc/resolv.conf"
-for fs in dev proc sys run; do mount --rbind "/$fs" "$target/$fs"; mount --make-rslave "$target/$fs"; done
+cp --remove-destination -L /etc/resolv.conf "$target/etc/resolv.conf"
+for fs in dev proc sys; do mount --rbind "/$fs" "$target/$fs"; mount --make-rslave "$target/$fs"; done
+mount -t tmpfs -o mode=755,nosuid,nodev tmpfs "$target/run"
 root_uuid=$(blkid -s UUID -o value /dev/hypr_vg/root)
 swap_uuid=$(blkid -s UUID -o value /dev/hypr_vg/swap)
 luks_uuid=$(cryptsetup luksUUID "$luks")
@@ -60,10 +61,8 @@ FSTAB
 echo "hypr_crypt UUID=$luks_uuid none luks,tpm2-device=auto,x-initrd.attach" > "$target/etc/crypttab"
 mkdir -p "$target/etc/kernel"
 echo "root=UUID=$root_uuid rw rd.luks.uuid=luks-$luks_uuid rd.lvm.lv=hypr_vg/root rd.lvm.lv=hypr_vg/swap resume=UUID=$swap_uuid" > "$target/etc/kernel/cmdline"
-chroot "$target" bash "$kit/installer/configure-target" "$login"
-chroot "$target" passwd "$login"
-sync
-umount -R "$target"
-vgchange -an hypr_vg
-cryptsetup close hypr_crypt
-echo 'Installation completed. Shut down, remove the USB and boot the new disk.'
+if grep -Fq '[s2idle]' /sys/power/mem_sleep 2>/dev/null; then
+  sed -i 's/$/ rtc_cmos.use_acpi_alarm=1/' "$target/etc/kernel/cmdline"
+fi
+(umask 077; printf '%s\n%s\n' "$login" "$root_uuid" > /run/framework-install.state)
+exec "$kit/installer/finish-install"

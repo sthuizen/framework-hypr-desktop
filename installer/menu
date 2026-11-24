@@ -5,7 +5,11 @@ while true; do
   clear
   case $action in
     network) nmtui ;;
-    install) /usr/share/framework-hypr/installer/install-system; echo "Installer exit status $?"; read -rp 'Press Enter to return.' ;;
+    install) if [[ -s /run/framework-install.state ]]; then
+        /usr/share/framework-hypr/installer/finish-install
+      else
+        /usr/share/framework-hypr/installer/install-system
+      fi; echo "Installer exit status $?"; read -rp 'Press Enter to return.' ;;
     hardware) /usr/share/framework-hypr/scripts/framework-hardware-report | less ;;
     shell) bash -l ;;
     poweroff) systemctl poweroff; exit ;;

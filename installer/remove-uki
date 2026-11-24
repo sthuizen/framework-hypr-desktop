@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+case "$1" in ''|*/*) exit 1;; esac
+mountpoint -q /efi
+rm -f -- "/efi/EFI/Linux/framework-$1.efi"

@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 while choice=$(zenity --list --title='Finish setup' --width=540 --height=430 --column=Action \
-    'Enroll disk TPM') foot --hold enroll-disk-tpm ;;
-  'Sign in to GitHub' 'Sign in to Codex' 'Prepare private Firefox extension' 'Load temporary Firefox extension' 'Update Codex' 'Edit sleep timers' 'Edit hibernation delays' 'Enroll disk TPM' 'Inspect laptop hardware'); do
+  'Sign in to GitHub' 'Sign in to Codex' 'Prepare private Firefox extension' 'Load temporary Firefox extension' 'Update Codex' 'Optional desktop additions' 'Edit sleep timers' 'Edit hibernation delays' 'Enroll disk TPM' 'Inspect laptop hardware'); do
   case "$choice" in
     'Sign in to GitHub') foot --hold gh auth login --hostname github.com --web --git-protocol https ;;
     'Sign in to Codex') foot --hold codex login ;;
@@ -17,6 +16,7 @@ while choice=$(zenity --list --title='Finish setup' --width=540 --height=430 --c
         zenity --info --text='Choose Sign in to GitHub and Prepare private Firefox extension first.'
       fi ;;
     'Update Codex') foot --hold update-codex ;;
+    'Optional desktop additions') foot --hold framework-addition ;;
     'Edit sleep timers') omarchy-shell thenailedone.sleep-guardian.panel toggle ;;
     'Edit hibernation delays') framework-hibernate-delay edit ;;
     'Enroll disk TPM') foot --hold enroll-disk-tpm ;;
