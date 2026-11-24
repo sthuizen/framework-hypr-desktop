@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Unprivileged Podman, mksquashfs and git are required on the build machine.
+set -Eeuo pipefail
+repo=$(cd "$(dirname "$0")/.." && pwd)
+out=${1:-"$repo/dist"}
+mkdir -p "$out"
+out=$(realpath "$out")
+work=$(mktemp -d "$out/.build-XXXXXXXX")
+container=''
+cleanup() { if [[ -n "$container" ]]; then podman rm -f "$container" >/dev/null; fi; rm -rf "$work"; }
+trap cleanup EXIT
+podman build -q -f "$repo/installer/Containerfile" -t localhost/framework-hypr-live:trixie "$repo/installer"
+podman build -q -f "$repo/installer/IsoTools" -t localhost/framework-hypr-isotools:trixie "$repo/installer"
+container=$(podman create localhost/framework-hypr-live:trixie)
+kit="$work/kit"
+mkdir -p "$kit" "$work/iso/live"
+cp -a "$repo"/{docs,installer,profile,scripts,skills,LICENSE,README.md} "$kit/"
+# Use the archive keyring from the official Ubuntu image resolved at build time.
+keybox=$(podman create docker.io/library/ubuntu:26.04)
+podman cp "$keybox:/usr/share/keyrings/ubuntu-archive-keyring.gpg" "$kit/"
+podman rm "$keybox" >/dev/null
+podman cp "$kit" "$container:/usr/share/framework-hypr"
+podman unshare bash -e -s -- "$container" "$work" <<'MOUNT'
+root=$(podman mount "$1")
+work=$2
+trap 'podman unmount "$1" >/dev/null' EXIT
+cp "$root"/boot/vmlinuz-* "$work/iso/live/vmlinuz"
+cp "$root"/boot/initrd.img-* "$work/iso/live/initrd.img"
+install -m644 "$root/usr/share/framework-hypr/installer/menu.service" "$root/etc/systemd/system/framework-installer.service"
+mkdir -p "$root/etc/systemd/system/multi-user.target.wants"
+ln -sf ../framework-installer.service "$root/etc/systemd/system/multi-user.target.wants/framework-installer.service"
+ln -sf /dev/null "$root/etc/systemd/system/getty@tty1.service"
+: > "$root/etc/machine-id"
+cp "$root/var/lib/dpkg/status" "$work/iso/live/package-status"
+mksquashfs "$root" "$work/iso/live/filesystem.squashfs" -noappend -processors 2 -comp zstd -no-progress -e .containerenv .dockerenv
+MOUNT
+podman run --rm -i --network=none -v "$work:/build:Z" -w /build localhost/framework-hypr-isotools:trixie bash -e -s <<'AUTHOR'
+cat >grub.cfg <<'GRUB'
+search --no-floppy --file --set=root /live/filesystem.squashfs
+set timeout=3
+menuentry 'Framework Hypr Desktop installer' {
+  linux /live/vmlinuz boot=live components quiet
+  initrd /live/initrd.img
+}
+GRUB
+grub-mkstandalone -O x86_64-efi --locales='' --fonts='' -o BOOTX64.EFI 'boot/grub/grub.cfg=grub.cfg'
+truncate -s 16M esp.img
+mkfs.vfat esp.img >/dev/null
+mmd -i esp.img ::/EFI ::/EFI/BOOT
+mcopy -i esp.img BOOTX64.EFI ::/EFI/BOOT/
+mkdir -p iso/EFI/BOOT
+cp BOOTX64.EFI iso/EFI/BOOT/
+xorriso -as mkisofs -R -V FRAMEWORK_HYPR -o candidate.iso -append_partition 2 0xef esp.img -appended_part_as_gpt -e '--interval:appended_partition_2:all::' -no-emul-boot iso
+AUTHOR
+mv "$work/candidate.iso" "$out/framework-hypr-amd64.iso"
+(cd "$out"; sha256sum framework-hypr-amd64.iso > SHA256SUMS)

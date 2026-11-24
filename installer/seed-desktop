@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+kit=/usr/share/framework-hypr
+up=/usr/share/omarchy
+skel=/etc/skel
+cfg=$skel/.config
+install -d "$cfg" "$cfg/uwsm" "$cfg/omarchy/plugins" "$skel/.local/state/omarchy/defaults" "$skel/.agents/skills" /etc/sddm.conf.d /usr/local/share/applications
+cp -a "$up/config/hypr" "$up/config/foot" "$up/config/omarchy" "$cfg/"
+sed -i 's/^-- omarchy_default_bindings = false/omarchy_default_bindings = false/' "$cfg/hypr/hyprland.lua"
+install -m644 "$kit/profile/bindings.lua" "$cfg/hypr/bindings.lua"
+# The Ubuntu first-login path is configured here. The upstream action also
+# provisions Arch packages and assumes tools from its graphical installer.
+sed -i '/hl.exec_cmd("omarchy-provision-first-run")/d; /herdr server/d' "$up/default/hypr/autostart.lua"
+cat >"$cfg/uwsm/env" <<'ENV'
+export OMARCHY_PATH=/usr/share/omarchy
+export PATH="$HOME/.local/bin:/usr/share/omarchy/bin:$PATH"
+export TERMINAL=foot
+export EDITOR="zed --wait"
+export VISUAL=zed
+ENV
+install -m644 "$cfg/uwsm/env" /etc/profile.d/framework-hypr.sh
+install -m644 "$kit/profile/mimeapps.list" "$cfg/mimeapps.list"
+echo foot.desktop >"$cfg/xdg-terminals.list"
+echo zed >"$skel/.local/state/omarchy/defaults/editor"
+install -m644 "$kit/profile/"*.desktop /usr/local/share/applications/
+for tool in finish-setup update-codex prepare-firefox-bridge framework-hardware-report framework-hibernate-delay enroll-disk-tpm; do install -m755 "$kit/scripts/$tool" /usr/local/bin/; done
+ln -s "$kit/skills/framework-hardware" "$skel/.agents/skills/framework-hardware"
+ln -s "$up/default/agents/skills/omarchy" "$skel/.agents/skills/omarchy"
+# SDDM finds only the distribution's compositor sessions. Select the Ubuntu port.
+install -m644 "$up/default/wayland-sessions/omarchy.desktop" /usr/share/wayland-sessions/
+mkdir -p /var/lib/sddm
+printf '[Last]\nSession=/usr/share/wayland-sessions/omarchy.desktop\n' >/var/lib/sddm/state.conf
+chown sddm:sddm /var/lib/sddm/state.conf
+printf '[General]\nDisplayServer=x11\n[Users]\nRememberLastSession=true\n' >/etc/sddm.conf.d/20-framework.conf
+printf '#%%PAM-1.0\n@include common-auth\n@include common-account\n' > /etc/pam.d/omarchy-lock-password
+mkdir -p /etc/systemd/system/systemd-suspend-then-hibernate.service.d
+printf '[Service]\nExecStartPre=/usr/local/bin/framework-hibernate-delay apply\n' > /etc/systemd/system/systemd-suspend-then-hibernate.service.d/20-framework.conf
+# Use the target's resume device and kernel sleep state for both panel checks.
+cat >"$up/bin/omarchy-hibernation-available" <<'CHECK'
+#!/bin/bash
+set -eu
+grep -qw disk /sys/power/state
+uuid=$(lsblk -dnro UUID /dev/hypr_vg/swap)
+[[ -n $uuid && " $(cat /proc/cmdline) " == *" resume=UUID=$uuid "* ]]
+active=false
+while read -r device; do
+  if [[ $(readlink -f "$device") == "$(readlink -f /dev/hypr_vg/swap)" ]]; then active=true; fi
+done < <(swapon --noheadings --show=NAME)
+"$active"
+
+CHECK
+gitfile() {
+  local url=$1 rev=$2 dest=$3
+  git init -q "$dest"
+  git -C "$dest" fetch -q --depth=1 "$url" "$rev"
+  git -C "$dest" checkout -q --detach FETCH_HEAD
+  [[ $(git -C "$dest" rev-parse HEAD) == "$rev" ]]
+}
+while IFS=$'\t' read -r name repo rev; do
+  dest=$(mktemp -d)
+  gitfile "$repo" "$rev" "$dest"
+  id=$(jq -er .id "$dest/manifest.json")
+  mv "$dest" "$cfg/omarchy/plugins/$id"
+done < <(jq -r '.[] | select(.enabled) | [.name,.repository,.commit] | @tsv' "$kit/profile/plugins.json")
+python3 "$kit/installer/seed-shell.py" "$cfg/omarchy/shell.json"
+state="$skel/.local/state/omarchy/current"
+mkdir -p "$state" "$cfg/omarchy/themes"
+gitfile https://github.com/sthuizen/omarchy-quattro-sunset-theme.git a0d5fd80bea51c11a9df70e02cb28c0ce3329608 "$cfg/omarchy/themes/quattro-sunset"
+ln -s ../../../../.config/omarchy/themes/quattro-sunset "$state/theme"
+echo quattro-sunset >"$state/theme.name"
+wall=$(jq -r '.wallpapers[0].file' "$cfg/omarchy/themes/quattro-sunset/wallpapers.json")
+ln -s "theme/$wall" "$state/background"

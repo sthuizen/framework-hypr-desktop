@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Ubuntu 26.04 native integration build, inside a disposable container.
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y --no-install-recommends cmake ninja-build g++ pkg-config qt6-base-private-dev qt6-declarative-private-dev qt6-wayland-private-dev qt6-shadertools-dev libdrm-dev libcli11-dev libjemalloc-dev libwayland-dev wayland-protocols libpipewire-0.3-dev libpam0g-dev libpolkit-agent-1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev spirv-tools libvulkan-dev libgbm-dev libgl-dev libegl-dev qt6-wayland-dev qt6-svg-dev
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+rev=2b4501a282689792b62e94f3fb30d8f512324fe6
+curl -fsSL --retry 3 "https://api.github.com/repos/quickshell-mirror/quickshell/tarball/$rev" -o "$work/src.tgz"
+echo "d4eeb3510ee052f271552a495a82d51e1a1005dda6f3b06ff0abef0d1645b8cc  $work/src.tgz" | sha256sum -c -
+mkdir "$work/src"
+tar --strip-components=1 -xf "$work/src.tgz" -C "$work/src"
+cmake -S "$work/src" -B "$work/build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DDISTRIBUTOR='Framework Hypr Desktop' -DINSTALL_QML_PREFIX=lib/qt6/qml -DCRASH_HANDLER=OFF
+cmake --build "$work/build" --parallel 2
+cmake --install "$work/build"

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=cliamp
+Exec=foot -e cliamp %F
+Icon=audio-x-generic
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+MimeType=audio/mpeg;audio/flac;audio/ogg;audio/x-wav;audio/mp4;

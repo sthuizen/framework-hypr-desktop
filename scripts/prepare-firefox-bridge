@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Run once as the signed-in desktop user. Firefox controls temporary loading.
+set -euo pipefail
+repo=sthuizen/firefox-browser-control
+dir="${XDG_DATA_HOME:-$HOME/.local/share}/framework-hypr/firefox-browser-control"
+if [[ ! -e $dir ]]; then
+  mkdir -p "$(dirname "$dir")"
+  gh repo clone "$repo" "$dir"
+fi
+git -C "$dir" rev-parse --verify HEAD
+plugin="$dir/plugins/firefox-browser-control"
+test -f "$plugin/extension/manifest.json"
+codex plugin marketplace add "$dir"
+codex plugin add firefox-browser-control@firefox-browser-control
+node "$plugin/scripts/install-native-host.mjs"
+printf 'In Firefox, open about:debugging#/runtime/this-firefox and load this temporary add-on:\n%s\n' "$plugin/extension/manifest.json"

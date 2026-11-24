@@ -1,0 +1,67 @@
+#!/usr/bin/python3
+"""Configure systemd's suspend-to-hibernate delay for battery or mains."""
+import argparse
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+
+CONFIG = Path('/etc/framework-hypr/hibernate-minutes.json')
+DROPIN = Path('/run/systemd/sleep.conf.d/90-framework-delay.conf')
+DEFAULTS = {'battery': 30, 'ac': 120}
+
+def validate(battery, ac):
+    for value in (battery, ac):
+        if type(value) is not int or not 1 <= value <= 10080:
+            raise ValueError('Choose a whole number of minutes from 1 to 10080.')
+    return {'battery': battery, 'ac': ac}
+
+def load():
+    if not CONFIG.exists():
+        return DEFAULTS
+    return validate(**json.loads(CONFIG.read_text()))
+
+def write(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as f:
+        f.write(data)
+        os.fchmod(f.fileno(), 0o644)
+    os.replace(f.name, path)
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=['edit', 'save', 'apply', 'show'])
+    parser.add_argument('minutes', type=int, nargs='*')
+    args = parser.parse_args()
+    if args.action == 'save':
+        if len(args.minutes) != 2:
+            parser.error('save expects battery and AC minutes')
+        write(CONFIG, json.dumps(validate(*args.minutes)) + '\n')
+    elif args.action == 'apply':
+        values = load()
+        power = subprocess.run(['/usr/bin/on_ac_power'], check=False).returncode
+        if power not in (0, 1):
+            raise SystemExit('Cannot determine power source for suspend')
+        delay = values['ac' if power == 0 else 'battery']
+        write(DROPIN, f'[Sleep]\nHibernateDelaySec={delay}min\nHibernateOnACPower=yes\n')
+    elif args.action == 'edit':
+        values = load()
+        for key, title in [('battery', 'Battery'), ('ac', 'Mains')]:
+            field = subprocess.run(['zenity', '--entry', '--title=Hibernation delay', '--text',
+                                    title + ' minutes after suspend', '--entry-text', str(values[key])],
+                                   text=True, capture_output=True)
+            if field.returncode:
+                return
+            values[key] = int(field.stdout.strip())
+        validate(**values)
+        subprocess.run(['pkexec', '/usr/local/bin/framework-hibernate-delay', 'save',
+                        str(values['battery']), str(values['ac'])], check=True)
+    else:
+        print(json.dumps(load()))
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+        raise SystemExit(str(exc))

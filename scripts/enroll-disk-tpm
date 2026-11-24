@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Owner-initiated enrollment on the installed system.
+set -euo pipefail
+[[ -d /sys/class/tpm/tpm0 && -d /sys/firmware/efi ]] || { echo 'UEFI and TPM 2.0 are required.'; exit 1; }
+[[ "$(findmnt -nro MAJ:MIN /)" == "$(lsblk -dnro MAJ:MIN /dev/hypr_vg/root)" ]] || { echo 'Boot the installed encrypted desktop first.'; exit 1; }
+uuid=$(awk '$1=="hypr_crypt"{sub(/^UUID=/,"",$2);print $2}' /etc/crypttab)
+dev="/dev/disk/by-uuid/$uuid"
+[[ -b $dev ]]
+echo 'The recovery passphrase is required again after some firmware or kernel updates.'
+echo 'Confirm the passphrase before adding the TPM unlock method.'
+sudo cryptsetup open --test-passphrase "$dev"
+# PCR 4 covers the EFI boot applications, including the UKI. PCR 7 covers
+# Secure Boot policy. PCR 12 covers externally supplied kernel parameters.
+sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=4+7+12 "$dev"
+echo 'Enrollment complete. Keep the recovery passphrase available for the next boot.'

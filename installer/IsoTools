@@ -1,0 +1,2 @@
+FROM docker.io/library/debian:trixie-slim
+RUN apt-get update && apt-get install -y --no-install-recommends grub-efi-amd64-bin grub-common xorriso dosfstools mtools ca-certificates && apt-get clean

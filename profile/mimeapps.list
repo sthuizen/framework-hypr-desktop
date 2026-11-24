@@ -1,0 +1,21 @@
+[Default Applications]
+text/html=firefox.desktop
+x-scheme-handler/http=firefox.desktop
+x-scheme-handler/https=firefox.desktop
+text/plain=dev.zed.Zed.desktop
+text/markdown=dev.zed.Zed.desktop
+inode/directory=org.gnome.Nautilus.desktop
+audio/mpeg=cliamp.desktop
+audio/flac=cliamp.desktop
+audio/ogg=cliamp.desktop
+audio/x-wav=cliamp.desktop
+audio/mp4=cliamp.desktop
+video/mp4=mpv.desktop
+video/webm=mpv.desktop
+video/x-matroska=mpv.desktop
+application/vnd.oasis.opendocument.text=libreoffice-writer.desktop
+application/vnd.oasis.opendocument.spreadsheet=libreoffice-calc.desktop
+application/vnd.oasis.opendocument.presentation=libreoffice-impress.desktop
+application/vnd.openxmlformats-officedocument.wordprocessingml.document=libreoffice-writer.desktop
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=libreoffice-calc.desktop
+application/vnd.openxmlformats-officedocument.presentationml.presentation=libreoffice-impress.desktop

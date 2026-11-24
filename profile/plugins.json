@@ -1,0 +1,68 @@
+[
+  {
+    "name": "omarchy-audio-visualizer",
+    "repository": "https://github.com/sthuizen/omarchy-audio-visualizer",
+    "commit": "7697171685ad37020bf32d007e56eff94a582bda",
+    "enabled": false
+  },
+  {
+    "name": "omarchy-biblical-graphite-theme",
+    "repository": "https://github.com/sthuizen/omarchy-biblical-graphite-theme",
+    "commit": "c866c9641de46988d0eebb94291d04f646c9ed76",
+    "enabled": false
+  },
+  {
+    "name": "omarchy-media-deck",
+    "repository": "https://github.com/sthuizen/omarchy-media-deck",
+    "commit": "3649764a6064bd3b73b56bcd012eabeb5566d6c5",
+    "enabled": true
+  },
+  {
+    "name": "omarchy-navbar-cat",
+    "repository": "https://github.com/sthuizen/omarchy-navbar-cat",
+    "commit": "f87371a60a73ac9c3ea421443fb86d0219306807",
+    "enabled": false
+  },
+  {
+    "name": "omarchy-power-center",
+    "repository": "https://github.com/sthuizen/omarchy-power-center",
+    "commit": "5585230c149ed01330452de265c8a82fbbfe25b4",
+    "enabled": true
+  },
+  {
+    "name": "omarchy-quattro-sunset-theme",
+    "repository": "https://github.com/sthuizen/omarchy-quattro-sunset-theme",
+    "commit": "a0d5fd80bea51c11a9df70e02cb28c0ce3329608",
+    "enabled": false
+  },
+  {
+    "name": "omarchy-sleep-guardian-plugin",
+    "repository": "https://github.com/sthuizen/omarchy-sleep-guardian-plugin",
+    "commit": "590866e14326c803bd831eed4da6e88631381a7b",
+    "enabled": true
+  },
+  {
+    "name": "omarchy-symbolic-workspaces",
+    "repository": "https://github.com/sthuizen/omarchy-symbolic-workspaces",
+    "commit": "a70264584cc85c428e224722e09f8a2679a26d8d",
+    "enabled": false
+  },
+  {
+    "name": "omarchy-system-pulse",
+    "repository": "https://github.com/sthuizen/omarchy-system-pulse",
+    "commit": "0f9f80c940b57ce5c6f2364cabb389f25bff1015",
+    "enabled": false
+  },
+  {
+    "name": "omarchy-tray-icon-fallback",
+    "repository": "https://github.com/sthuizen/omarchy-tray-icon-fallback",
+    "commit": "1d80791cb0ad477dcab3b2e49d639faae17052ae",
+    "enabled": false
+  },
+  {
+    "name": "omarchy-wallpaper-rotation-plugin",
+    "repository": "https://github.com/sthuizen/omarchy-wallpaper-rotation-plugin",
+    "commit": "1113f760dee6cda8b412e9c6c7201ea3d2272bd3",
+    "enabled": false
+  }
+]

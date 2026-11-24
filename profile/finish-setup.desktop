@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Finish setup
+Comment=Connect accounts, load the Firefox extension, update Codex and edit power timers
+Exec=finish-setup
+Icon=preferences-system
+Categories=Settings;

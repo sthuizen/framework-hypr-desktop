@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+version=$1
+image=/boot/vmlinuz-$version
+ramdisk=/boot/initrd.img-$version
+[ -s "$image" ] && [ -s "$ramdisk" ] || exit 0
+mountpoint -q /efi
+install -d /efi/EFI/Linux
+work=$(mktemp -d /efi/EFI/Linux/.build-XXXXXX)
+trap 'rm -rf "$work"' EXIT
+/usr/lib/systemd/ukify build --linux="$image" --initrd="$ramdisk" --cmdline=@/etc/kernel/cmdline --uname="$version" --os-release=@/etc/os-release --output="$work/image.efi"
+mv "$work/image.efi" "/efi/EFI/Linux/framework-$version.efi"

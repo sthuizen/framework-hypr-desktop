@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Update the CLI in the caller's user-owned npm prefix.
+set -euo pipefail
+prefix="${XDG_DATA_HOME:-$HOME/.local/share}/framework-hypr/codex"
+npm install --global --prefix "$prefix" --registry https://registry.npmjs.org/ --no-fund --no-audit "@openai/codex@${1:-latest}"
+mkdir -p "$HOME/.local/bin"
+link="$HOME/.local/bin/codex"
+if [[ -e $link || -L $link ]]; then
+  [[ $(readlink -f "$link") == "$(readlink -f "$prefix/bin/codex")" ]] || { echo "Another Codex installation owns $link" >&2; exit 1; }
+else
+  ln -s "$prefix/bin/codex" "$link"
+fi
+"$link" --version

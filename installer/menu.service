@@ -1,0 +1,14 @@
+[Unit]
+Description=Framework Hypr installer menu
+After=systemd-user-sessions.service NetworkManager.service
+Conflicts=getty@tty1.service
+[Service]
+ExecStart=/usr/share/framework-hypr/installer/menu
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+Restart=on-failure
+[Install]
+WantedBy=multi-user.target

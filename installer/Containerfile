@@ -1,0 +1,3 @@
+FROM docker.io/library/debian:trixie-slim
+ENV DEBIAN_FRONTEND=noninteractive
+RUN sed -i 's/Components: main$/Components: main non-free-firmware/' /etc/apt/sources.list.d/debian.sources && apt-get update && apt-get install -y --no-install-recommends linux-image-amd64 systemd-sysv live-boot live-config initramfs-tools network-manager wpasupplicant wireless-regdb firmware-mediatek ca-certificates curl gpg gpgv debian-archive-keyring debootstrap cryptsetup-bin lvm2 dosfstools gdisk parted util-linux dialog python3 sudo nano kmod less && apt-get clean && rm -rf /var/lib/apt/lists/*

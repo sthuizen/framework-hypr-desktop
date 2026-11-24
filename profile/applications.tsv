@@ -1,0 +1,9 @@
+role	application	integration
+browser	Firefox	http, https, HTML, Omarchy browser
+editor	Zed	text/plain, source documents, graphical editor, Omarchy editor; use wait mode for blocking edit jobs
+terminal	foot	xdg-terminal-exec and Super+Return
+files	Nautilus	inode/directory and removable-media browsing
+music	cliamp	audio file types via a desktop entry invoking foot and cliamp with paths as separate arguments
+video	mpv	common video containers and Omarchy playback controls
+office	LibreOffice	Writer, Calc and Impress for ODF and OOXML
+coding assistant	Codex CLI	versioned seed; update-codex fetches the latest stable release

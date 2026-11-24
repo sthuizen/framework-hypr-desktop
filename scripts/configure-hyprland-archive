@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Run in the target Ubuntu 26.04 build environment as root.
+set -euo pipefail
+. /etc/os-release
+[[ $ID == ubuntu && $VERSION_CODENAME == resolute ]]
+fingerprint=A54D23B62FF3FCC76EFF71E8FDBAAA1CF0CCF48E
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+curl -fsSL --retry 3 "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$fingerprint" -o "$tmp/key.asc"
+actual=$(gpg --batch --show-keys --with-colons "$tmp/key.asc" | awk -F: '$1=="pub"{want=1} $1=="fpr" && want{print $10; want=0}')
+[[ $actual == "$fingerprint" ]]
+gpg --batch --dearmor -o "$tmp/key.gpg" "$tmp/key.asc"
+install -Dm644 "$tmp/key.gpg" /etc/apt/keyrings/hyprland-ppa.gpg
+cat > /etc/apt/sources.list.d/hyprland.sources <<'APT'
+Types: deb deb-src
+URIs: https://ppa.launchpadcontent.net/cppiber/hyprland/ubuntu
+Suites: resolute
+Components: main
+Signed-By: /etc/apt/keyrings/hyprland-ppa.gpg
+APT

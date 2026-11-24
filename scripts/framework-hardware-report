@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""Print hardware and power capabilities for local troubleshooting."""
+import json
+import platform
+from pathlib import Path
+
+def read(path):
+    try:
+        return Path(path).read_text().strip()
+    except OSError:
+        return None
+
+supplies = Path('/sys/class/power_supply')
+print(json.dumps({
+    'kernel': platform.release(),
+    'machine': read('/sys/class/dmi/id/product_name'),
+    'firmware': read('/sys/class/dmi/id/bios_version'),
+    'tpm_version': read('/sys/class/tpm/tpm0/tpm_version_major'),
+    'lockdown': read('/sys/kernel/security/lockdown'),
+    'sleep_states': read('/sys/power/state'),
+    'mem_sleep': read('/sys/power/mem_sleep'),
+    'graphics_drivers': sorted({p.resolve().name for p in Path('/sys/class/drm').glob('card*/device/driver')}),
+    'outputs': {p.parent.name: read(p) for p in Path('/sys/class/drm').glob('card*-*/status')},
+    'power': {p.name: {key: read(p / key) for key in ('type', 'online', 'status', 'capacity') if (p / key).exists()} for p in sorted(supplies.glob('*'))},
+}, indent=2))

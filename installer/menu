@@ -1,0 +1,13 @@
+#!/bin/bash
+export TERM=${TERM:-linux}
+while true; do
+  action=$(dialog --stdout --no-cancel --title 'Framework Hypr Desktop' --menu 'Ubuntu 26.04 installation' 16 72 6 network 'Connect to Wi-Fi or Ethernet' install 'Install on a whole disk' hardware 'Inspect laptop hardware' shell 'Open a live system shell' poweroff 'Shut down') || continue
+  clear
+  case $action in
+    network) nmtui ;;
+    install) /usr/share/framework-hypr/installer/install-system; echo "Installer exit status $?"; read -rp 'Press Enter to return.' ;;
+    hardware) /usr/share/framework-hypr/scripts/framework-hardware-report | less ;;
+    shell) bash -l ;;
+    poweroff) systemctl poweroff; exit ;;
+  esac
+done

@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Runs only from the live installer root, on a disk explicitly named by its owner.
+set -Eeuo pipefail
+[[ $EUID == 0 && -d /run/live/medium && -d /sys/firmware/efi ]] || { echo 'Boot the live ISO in UEFI mode.'; exit 1; }
+kit=/usr/share/framework-hypr
+echo 'Installation needs internet. Run nmtui first to join Wi-Fi.'
+curl --retry 2 -fsS https://archive.ubuntu.com/ubuntu/dists/resolute/InRelease -o /run/resolute.inrelease
+gpgv --keyring "$kit/ubuntu-archive-keyring.gpg" /run/resolute.inrelease
+lsblk -dpno NAME,SIZE,MODEL,TRAN
+read -rp 'Whole installation disk (for example /dev/nvme0n1): ' disk
+[[ -b "$disk" && $(lsblk -dnro TYPE "$disk") == disk ]]
+disk=$(realpath "$disk")
+if lsblk -nrpo MOUNTPOINT "$disk" | grep -q '[^[:space:]]'; then echo 'Disk has a mounted or active swap volume.'; exit 1; fi
+[[ $(lsblk -nro TYPE "$disk" | grep -vcE '^(disk|part)$') == 0 ]] || { echo 'Deactivate existing mappings before installing.'; exit 1; }
+[[ ! -e /dev/mapper/hypr_crypt && ! -e /dev/hypr_vg ]]
+ram_kib=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)
+swap_gib=$(( (ram_kib+1048575)/1048576 + 6 ))
+(( $(blockdev --getsize64 "$disk") >= (swap_gib + 40) * 1073741824 ))
+read -rp 'Login name: ' login
+[[ $login =~ ^[a-z][a-z0-9_-]{0,30}$ && "$login" != root ]]
+echo "This erases every partition on $disk. New encrypted swap: $swap_gib GiB."
+read -rp "Type ERASE $disk to continue: " confirm
+[[ "$confirm" == "ERASE $disk" ]] || exit 1
+sgdisk --zap-all "$disk"
+sgdisk -n 1:0:+2G -t 1:ef00 -n 2:0:0 -t 2:8309 "$disk"
+partprobe "$disk"
+udevadm settle
+part() { lsblk -nrpo NAME,PARTN "$disk" | awk -v n="$1" '$2==n {print $1}'; }
+esp=$(part 1)
+luks=$(part 2)
+echo 'Choose the disk recovery passphrase. Keep a copy off this machine.'
+cryptsetup luksFormat --type luks2 --verify-passphrase "$luks"
+cryptsetup open "$luks" hypr_crypt
+pvcreate /dev/mapper/hypr_crypt
+vgcreate hypr_vg /dev/mapper/hypr_crypt
+lvcreate -L "${swap_gib}G" -n swap hypr_vg
+lvcreate -l 100%FREE -n root hypr_vg
+mkfs.ext4 -q /dev/hypr_vg/root
+mkswap /dev/hypr_vg/swap
+mkfs.fat -F32 "$esp"
+target=/mnt/framework-target
+mkdir -p "$target"
+mount /dev/hypr_vg/root "$target"
+mkdir -p "$target/efi"
+mount -o umask=0077 "$esp" "$target/efi"
+echo 'Installing the signed Ubuntu base packages.'
+debootstrap --include=ca-certificates --arch=amd64 --keyring="$kit/ubuntu-archive-keyring.gpg" resolute "$target" https://archive.ubuntu.com/ubuntu /usr/share/debootstrap/scripts/gutsy
+install -d "$target/usr/share/framework-hypr"
+cp -a "$kit/." "$target/usr/share/framework-hypr/"
+cp -L /etc/resolv.conf "$target/etc/resolv.conf"
+for fs in dev proc sys run; do mount --rbind "/$fs" "$target/$fs"; mount --make-rslave "$target/$fs"; done
+root_uuid=$(blkid -s UUID -o value /dev/hypr_vg/root)
+swap_uuid=$(blkid -s UUID -o value /dev/hypr_vg/swap)
+luks_uuid=$(cryptsetup luksUUID "$luks")
+cat > "$target/etc/fstab" <<FSTAB
+UUID=$root_uuid / ext4 defaults 0 1
+UUID=$(blkid -s UUID -o value "$esp") /efi vfat umask=0077 0 2
+UUID=$swap_uuid none swap sw 0 0
+FSTAB
+echo "hypr_crypt UUID=$luks_uuid none luks,tpm2-device=auto,x-initrd.attach" > "$target/etc/crypttab"
+mkdir -p "$target/etc/kernel"
+echo "root=UUID=$root_uuid rw rd.luks.uuid=luks-$luks_uuid rd.lvm.lv=hypr_vg/root rd.lvm.lv=hypr_vg/swap resume=UUID=$swap_uuid" > "$target/etc/kernel/cmdline"
+chroot "$target" bash "$kit/installer/configure-target" "$login"
+chroot "$target" passwd "$login"
+sync
+umount -R "$target"
+vgchange -an hypr_vg
+cryptsetup close hypr_crypt
+echo 'Installation completed. Shut down, remove the USB and boot the new disk.'

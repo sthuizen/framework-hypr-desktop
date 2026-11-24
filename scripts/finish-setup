@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -eu
+while choice=$(zenity --list --title='Finish setup' --width=540 --height=430 --column=Action \
+    'Enroll disk TPM') foot --hold enroll-disk-tpm ;;
+  'Sign in to GitHub' 'Sign in to Codex' 'Prepare private Firefox extension' 'Load temporary Firefox extension' 'Update Codex' 'Edit sleep timers' 'Edit hibernation delays' 'Enroll disk TPM' 'Inspect laptop hardware'); do
+  case "$choice" in
+    'Sign in to GitHub') foot --hold gh auth login --hostname github.com --web --git-protocol https ;;
+    'Sign in to Codex') foot --hold codex login ;;
+    'Prepare private Firefox extension') foot --hold prepare-firefox-bridge ;;
+    'Load temporary Firefox extension')
+      manifest="${XDG_DATA_HOME:-$HOME/.local/share}/framework-hypr/firefox-browser-control/plugins/firefox-browser-control/extension/manifest.json"
+      if [[ -f "$manifest" ]]; then
+        printf %s "$manifest" | wl-copy
+        firefox 'about:debugging#/runtime/this-firefox' &
+        zenity --info --text='Choose Load Temporary Add-on, then press Ctrl+L and paste the manifest path from the clipboard.'
+      else
+        zenity --info --text='Choose Sign in to GitHub and Prepare private Firefox extension first.'
+      fi ;;
+    'Update Codex') foot --hold update-codex ;;
+    'Edit sleep timers') omarchy-shell thenailedone.sleep-guardian.panel toggle ;;
+    'Edit hibernation delays') framework-hibernate-delay edit ;;
+    'Enroll disk TPM') foot --hold enroll-disk-tpm ;;
+    'Inspect laptop hardware') foot --hold framework-hardware-report ;;
+  esac || true
+done
